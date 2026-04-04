@@ -1,45 +1,68 @@
+// api/generate.js — Vercel Serverless Function
+// Gemini API key is stored in Vercel Environment Variables (GEMINI_API_KEY)
+// Admin email can create pages for free (ADMIN_EMAIL env var)
+
 export default async function handler(req, res) {
-  // CORS
+  // Allow CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // ─── Admin emails (بدون دفع) ───
-  const ADMIN_EMAILS = ['raholnichan1@gmail.com'];
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   const { prompt, userEmail } = req.body;
-  if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
 
-  const isAdmin = ADMIN_EMAILS.includes(userEmail);
+  if (!prompt) {
+    return res.status(400).json({ error: 'prompt is required' });
+  }
+
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  const ADMIN_EMAIL    = process.env.ADMIN_EMAIL || 'raholnichan1@gmail.com';
 
-  if (!GEMINI_API_KEY) return res.status(500).json({ error: 'API key not configured' });
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY not configured in Vercel environment variables' });
+  }
+
+  const isAdmin = userEmail === ADMIN_EMAIL;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 8192, temperature: 0.8 }
+          generationConfig: {
+            temperature: 0.8,
+            maxOutputTokens: 8192,
+          }
         })
       }
     );
 
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(response.status).json({ error: err });
+    if (!geminiRes.ok) {
+      const errData = await geminiRes.json().catch(() => ({}));
+      console.error('Gemini API error:', errData);
+      return res.status(502).json({ error: 'Gemini API error: ' + (errData?.error?.message || geminiRes.status) });
     }
 
-    const data = await response.json();
-    const html = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const data = await geminiRes.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Clean up HTML — remove markdown fences if any
+    const html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
+
     return res.status(200).json({ html, isAdmin });
 
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('Server error:', err);
+    return res.status(500).json({ error: 'Server error: ' + err.message });
   }
 }
