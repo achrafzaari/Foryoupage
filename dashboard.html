@@ -691,6 +691,8 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
 // ════════════════════════════════════════════
 // 🔧 نفس إعدادات Firebase من index.html
 // ════════════════════════════════════════════
+// ⚠️ Firebase config — هذه البيانات آمنة للـ frontend (تُقيَّد من Firebase Console)
+// تأكد من تفعيل قواعد Firestore Security Rules وتقييد الـ apiKey من Google Cloud Console
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyATySgmlFF1X2bhCeFDZAByslMrEjqDB_w",
   authDomain:        "foryoupage-c24e0.firebaseapp.com",
@@ -700,7 +702,8 @@ const FIREBASE_CONFIG = {
   appId:             "1:172871898986:web:d5e2ba0e80ea83dbe53713"
 };
 
-// 🔑 Gemini يعمل عبر Vercel API (المفتاح محفوظ في Environment Variables)
+// 🔑 Gemini API key محفوظ فقط في Vercel → Environment Variables (GEMINI_API_KEY)
+// لا يوجد أي مفتاح مكشوف هنا — الطلب يمر عبر /api/generate.js
 const GEMINI_URL = '/api/generate';
 // ════════════════════════════════════════════
 
