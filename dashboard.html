@@ -700,9 +700,8 @@ const FIREBASE_CONFIG = {
   appId:             "1:172871898986:web:d5e2ba0e80ea83dbe53713"
 };
 
-// 🔑 مفتاح Gemini AI (مجاني من https://aistudio.google.com)
-const GEMINI_API_KEY = "AIzaSyDLh_tuSR8UBG7Nh3qnk88OYmHSdwsv0V4";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+// 🔑 Gemini يعمل عبر Vercel API (المفتاح محفوظ في Environment Variables)
+const GEMINI_URL = '/api/generate';
 // ════════════════════════════════════════════
 
 import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -806,15 +805,14 @@ ${notes ? 'معلومات إضافية:\n' + notes : ''}
     const resp = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 8192, temperature: 0.8 }
-      })
+      body: JSON.stringify({ prompt, userEmail: currentUser.email })
     });
 
     if (!resp.ok) throw new Error('Gemini API error: ' + resp.status);
     const data = await resp.json();
-    const html = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (data.error) throw new Error(data.error);
+    const html = data.html || '';
+    const isAdmin = data.isAdmin || false;
 
     // Deduct balance in Firestore
     const pageObj = {
