@@ -1,31 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/generate.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "*.html",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/generate",
-      "dest": "/api/generate.js"
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/dashboard",
-      "dest": "/dashboard.html"
-    },
-    {
-      "src": "/(.*\\.html)",
-      "dest": "/$1"
-    }
+  "rewrites": [
+    { "source": "/api/generate", "destination": "/api/generate.js" }
   ]
 }
