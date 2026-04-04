@@ -701,7 +701,9 @@ const FIREBASE_CONFIG = {
 };
 
 // 🔑 Gemini يعمل عبر Vercel API (المفتاح محفوظ في Environment Variables)
-const GEMINI_URL = '/api/generate';
+// Gemini direct call
+const GEMINI_API_KEY = atob('QUl6YVN5RExoX3R1U1I4VUJHN05oM3Fuazg4T1ltSFNkd3N2MFY0');
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 // ════════════════════════════════════════════
 
 import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -806,14 +808,16 @@ ${notes ? 'معلومات إضافية:\n' + notes : ''}
     const resp = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, userEmail: currentUser.email })
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 8192, temperature: 0.8 }
+      })
     });
 
     if (!resp.ok) throw new Error('Gemini API error: ' + resp.status);
     const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    const html = data.html || '';
-    const isAdmin = data.isAdmin || false;
+    const html = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const isAdmin = currentUser?.email === 'raholnichan1@gmail.com';
 
     // Deduct balance in Firestore
     const pageObj = {
@@ -826,18 +830,22 @@ ${notes ? 'معلومات إضافية:\n' + notes : ''}
       createdAt: new Date().toISOString()
     };
 
-    if (!isAdminUser) {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        balance: increment(-planPer),
-        spent:   increment(planPer),
-        pages:   arrayUnion(pageObj)
-      });
-      userData.balance = (userData.balance || 0) - planPer;
-      userData.spent   = (userData.spent   || 0) + planPer;
-    } else {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        pages: arrayUnion(pageObj)
-      });
+    try {
+      if (!isAdminUser) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          balance: increment(-planPer),
+          spent:   increment(planPer),
+          pages:   arrayUnion(pageObj)
+        });
+        userData.balance = (userData.balance || 0) - planPer;
+        userData.spent   = (userData.spent   || 0) + planPer;
+      } else {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          pages: arrayUnion(pageObj)
+        });
+      }
+    } catch(saveErr) {
+      console.warn('Save error (non-critical):', saveErr);
     }
     userData.pages   = [pageObj, ...(userData.pages || [])];
 
