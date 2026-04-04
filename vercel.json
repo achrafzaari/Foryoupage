@@ -1,8 +1,10 @@
 {
-  "functions": {
-    "api/generate.js": {
-      "memory": 1024,
-      "maxDuration": 30
-    }
-  }
+  "version": 2,
+  "builds": [
+    { "src": "api/generate.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/generate", "dest": "/api/generate.js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
 }
