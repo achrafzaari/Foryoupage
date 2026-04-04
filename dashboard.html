@@ -535,7 +535,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
     <button class="add-offer" onclick="addOffer()">+ إضافة عرض</button>
   </div>
 
-  <!-- 12b -->
+  <!-- 13 -->
   <div class="sec">
     <div class="sec-ttl"><span class="sec-num">13</span> خيارات إضافية</div>
     <div class="sec-sub">شحن مجاني، ضمان، مقاسات، ألوان، ملاحظات للـ AI...</div>
@@ -543,7 +543,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
     <div class="cc" id="cco">0/700</div>
   </div>
 
-  <!-- 13 اللون -->
+  <!-- 14 اللون -->
   <div class="sec">
     <div class="sec-ttl"><span class="sec-num">14</span> اللون</div>
     <div class="segs">
@@ -778,70 +778,31 @@ window.doGenerate = async function() {
   const steps = ['gs1','gs2','gs3','gs4','gs5'];
   steps.forEach((s,i) => setTimeout(() => document.getElementById(s).classList.add('on'), (i+1)*1200));
 
-  // Build advanced prompt
+  // Build prompt
   const langMap = {ar:'العربية الفصحى','ar-ma':'الدارجة المغربية','ar-dz':'الجزائرية','ar-tn':'التونسية',en:'English',fr:'Français'};
+  const prompt = `
+أنت خبير تسويق رقمي متخصص في كتابة صفحات الهبوط عالية التحويل.
+اكتب محتوى صفحة هبوط احترافية باللغة: ${langMap[lang] || 'العربية'} للسوق المستهدف: ${country}.
 
-  // Collect all builder settings
-  const allSecs = document.querySelectorAll('#pg-builder .sec');
-  const getSecBtn = (secIdx) => allSecs[secIdx]?.querySelector('.sbtn.on');
-
-  const pageLength   = getSecBtn(4)?.innerText.trim()  || 'عادي';
-  const quality      = getSecBtn(5)?.innerText.trim()  || '1K';
-  const marketAngle  = getSecBtn(6)?.innerText.trim()  || 'تلقائي';
-  const orderForm    = getSecBtn(7)?.innerText.trim()  || 'مفعّل';
-  const designStyle  = getSecBtn(8)?.innerText.trim()  || 'فاتح';
-  const ctaStyle     = getSecBtn(9)?.innerText.trim()  || 'حية';
-
-  const priceEnabled = document.getElementById('tog-price').checked;
-  let priceNow = '', priceOld = '', currency = 'د.م';
-  if (priceEnabled) {
-    priceNow = document.getElementById('price-now').value;
-    priceOld = document.getElementById('price-old').value;
-    const currBtn = document.querySelector('.curr-btn.on');
-    if (currBtn) {
-      const t = currBtn.innerText;
-      currency = t.includes('درهم')?'د.م': t.includes('دولار')?'$': t.includes('يورو')?'€': 'ر.س';
-    }
-  }
-
-  const offers = [];
-  document.querySelectorAll('#offers-list .offer-item .cinp').forEach(inp=>{
-    if(inp.value.trim()) offers.push(inp.value.trim());
-  });
-
-  const brandPanel = document.getElementById('brand-panel');
-  const isBrandMode = brandPanel?.classList.contains('on');
-  const brandName = isBrandMode ? (document.getElementById('brand-name').value.trim()) : '';
-  const hasImage = !!document.querySelector('#upbox .up-prev');
-
-  const prompt = `أنت خبير تسويق رقمي متخصص في كتابة صفحات الهبوط عالية التحويل.
-
-اللغة: ${langMap[lang] || 'العربية'}
-السوق المستهدف: ${country}
-
-【معلومات المنتج】
+معلومات المنتج:
 ${desc}
-${notes ? `\n【ملاحظات إضافية】\n${notes}\n` : ''}
-【الإعدادات المطلوبة】
-- طول الصفحة: ${pageLength}
-- جودة المحتوى: ${quality}
-- الزاوية التسويقية: ${marketAngle}
-- فورم الطلب: ${orderForm === 'مفعّل' ? 'مطلوب (الاسم، الهاتف، المدينة)' : 'لا تضع نموذج طلب'}
-- نمط التصميم: ${designStyle === 'داكن' ? 'داكن (خلفية سوداء/رمادية، نصوص فاتحة)' : 'فاتح (خلفية بيضاء، نصوص داكنة)'}
-- نمط أزرار CTA: ${ctaStyle}
-${priceEnabled ? `- السعر: ${priceNow} ${currency}${priceOld ? ` (مشطوب: ${priceOld} ${currency})` : ''}` : '- لا تُظهر أسعاراً'}
-${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
-- اللون الرئيسي: ${window.selColor || '#1bc47d'}
-${isBrandMode && brandName ? `- العلامة التجارية: ${brandName}` : ''}
-${hasImage ? '- توجد صورة للمنتج' : ''}
 
-【المطلوب】
-اكتب صفحة هبوط HTML/CSS متجاوبة تحتوي على: Hero، مميزات، شهادات، عرض/سعر، ضمان، نموذج طلب (إذا مفعل)، تذييل.
-اللون الأساسي: ${window.selColor || '#1bc47d'} — التصميم ${designStyle === 'داكن' ? 'داكن' : 'فاتح'} — اتجاه RTL.
-أخرج فقط HTML كاملاً يبدأ بـ <!DOCTYPE html>.`;
+${notes ? 'معلومات إضافية:\n' + notes : ''}
+
+اكتب صفحة الهبوط بتنسيق HTML كامل تشمل:
+1. Hero section: عنوان جذاب + عنوان فرعي + زر CTA
+2. قسم المميزات (3-4 مميزات مع أيقونات)
+3. قسم الشهادات (2-3 تعليقات وهمية موثوقة)
+4. قسم العرض + السعر
+5. قسم الضمان والثقة
+6. نموذج الطلب بسيط (الاسم، الهاتف، المدينة)
+
+استخدم تصميماً احترافياً بألوان خضراء، RTL للعربية، CSS مدمج داخل الـ HTML.
+أرجع فقط كود HTML كامل بدون أي شرح.
+`;
 
   try {
-    // ✅ إرسال للـ API على Vercel — الـ Key محفوظ في Environment Variables
+    // ✅ يرسل فقط لـ /api/generate على Vercel — لا يوجد API key هنا
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -851,7 +812,7 @@ ${hasImage ? '- توجد صورة للمنتج' : ''}
     if (!resp.ok) throw new Error('Gemini API error: ' + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    let html = data.html || '';
+    const html = data.html || '';
     const clean = html.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
     // ✅ pageObj يحفظ الـ HTML كاملاً في Firestore
@@ -980,14 +941,12 @@ window.refreshUI = refreshUI;
 const PALETTE = ['#1bc47d','#e74c3c','#3498db','#9b59b6','#f39c12','#1abc9c','#e67e22','#2ecc71','#e91e63','#00bcd4','#ff5722','#607d8b','#795548','#4caf50','#ff9800','#673ab7','#2196f3','#009688','#ffc107','#ff6b6b'];
 const LANGS_CYCLE = ['EN','AR','FR'];
 const BOT = {'شحن':'اذهب لـ "شحن الرصيد" واختر الباقة.','رصيد':'رصيدك يظهر أعلى الصفحة، اشحن من الشحن.','صفحة':'أدخل وصف المنتج واضغط "ولّد".','gemini':'نستخدم Gemini 1.5 Flash من Google — مجاني.','تكلفة':'التكلفة من $0.50 حسب الباقة.','مساعدة':'اسألني عن أي شيء!'};
-
-// expose selColor to window so module script can access it
 window.selColor = '#1bc47d';
 
 // ─── localStorage: restore saved language ───
 const _savedLang = localStorage.getItem('fyp_lang');
 let li = _savedLang ? Math.max(0, LANGS_CYCLE.indexOf(_savedLang)) : 0;
-let offerCnt = 0, selColor = window.selColor || '#1bc47d';
+let offerCnt = 0, selColor = '#1bc47d';
 
 // Build color palette
 (function(){
