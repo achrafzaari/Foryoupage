@@ -841,17 +841,17 @@ ${hasImage ? '- توجد صورة للمنتج' : ''}
 أخرج فقط HTML كاملاً يبدأ بـ <!DOCTYPE html>.`;
 
   try {
-    // ✅ يرسل فقط لـ /api/generate على Vercel — لا يوجد API key هنا
+    // ✅ إرسال للـ API على Vercel — الـ Key محفوظ في Environment Variables
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, userEmail: currentUser.email, settings: { lang, country, color: window.selColor || '#1bc47d', quality } })
+      body: JSON.stringify({ prompt, userEmail: currentUser.email })
     });
 
     if (!resp.ok) throw new Error('Gemini API error: ' + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    const html = data.html || '';
+    let html = data.html || '';
     const clean = html.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
     // ✅ pageObj يحفظ الـ HTML كاملاً في Firestore
@@ -1541,3 +1541,4 @@ applyTranslations();
 </script>
 </body>
 </html>
+
