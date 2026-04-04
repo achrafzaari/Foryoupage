@@ -13,10 +13,8 @@ export default async function handler(req, res) {
   const ADMIN_EMAIL = 'raholnichan1@gmail.com';
 
   if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel environment variables' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
   }
-
-  const isAdmin = userEmail === ADMIN_EMAIL;
 
   try {
     const geminiRes = await fetch(
@@ -40,9 +38,8 @@ export default async function handler(req, res) {
     const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
-    return res.status(200).json({ html, isAdmin });
+    return res.status(200).json({ html, isAdmin: userEmail === ADMIN_EMAIL });
 
   } catch (err) {
     return res.status(500).json({ error: 'Server error: ' + err.message });
   }
-}
