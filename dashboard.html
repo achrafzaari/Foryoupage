@@ -769,7 +769,8 @@ window.doGenerate = async function() {
   const notes   = document.getElementById('notes').value.trim();
   const planPer = userData.planPer || 0.80;
 
-  if (userData.balance < planPer) { toast('⚠️ رصيدك غير كافٍ'); return; }
+  const isAdminUser = currentUser?.email === 'raholnichan1@gmail.com';
+  if (!isAdminUser && userData.balance < planPer) { toast('⚠️ رصيدك غير كافٍ'); return; }
   if (!desc) { toast('⚠️ أدخل وصف المنتج أولاً'); return; }
 
   // Show loading overlay
@@ -825,14 +826,19 @@ ${notes ? 'معلومات إضافية:\n' + notes : ''}
       createdAt: new Date().toISOString()
     };
 
-    await updateDoc(doc(db, 'users', currentUser.uid), {
-      balance: increment(-planPer),
-      spent:   increment(planPer),
-      pages:   arrayUnion(pageObj)
-    });
-
-    userData.balance = (userData.balance || 0) - planPer;
-    userData.spent   = (userData.spent   || 0) + planPer;
+    if (!isAdminUser) {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        balance: increment(-planPer),
+        spent:   increment(planPer),
+        pages:   arrayUnion(pageObj)
+      });
+      userData.balance = (userData.balance || 0) - planPer;
+      userData.spent   = (userData.spent   || 0) + planPer;
+    } else {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        pages: arrayUnion(pageObj)
+      });
+    }
     userData.pages   = [pageObj, ...(userData.pages || [])];
 
     // Close overlay
@@ -1458,3 +1464,4 @@ applyTranslations();
 </script>
 </body>
 </html>
+
