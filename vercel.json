@@ -4,6 +4,10 @@
     {
       "src": "api/generate.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "*.html",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -12,7 +16,15 @@
       "dest": "/api/generate.js"
     },
     {
-      "src": "/(.*)",
+      "src": "/dashboard",
+      "dest": "/dashboard.html"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/(.*\\.html)",
       "dest": "/$1"
     }
   ]
