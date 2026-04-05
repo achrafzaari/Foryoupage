@@ -700,7 +700,7 @@ const FIREBASE_CONFIG = {
   appId:             "1:172871898986:web:d5e2ba0e80ea83dbe53713"
 };
 
-// 🔑 Gemini API key في Vercel Environment Variables فقط — لا يوجد هنا
+// 🔑 API key في Vercel Environment Variables
 // ════════════════════════════════════════════
 
 import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -759,7 +759,7 @@ window.doLogout = async function() {
   window.location.href = 'index.html';
 };
 
-// ─── GENERATE with Gemini AI ───
+// ─── GENERATE ───
 window.doGenerate = async function() {
   closeOv('ov-confirm');
   const desc    = document.getElementById('product-desc').value.trim();
@@ -813,6 +813,10 @@ window.doGenerate = async function() {
   const isBrandMode  = brandPanel?.classList.contains('on');
   const brandName    = isBrandMode ? document.getElementById('brand-name').value.trim() : '';
 
+  // ── الصورة base64 ── (يجب تعريفها قبل الـ prompt)
+  const imgB64  = window._productImgB64 || null;
+  const imgType = window._productImgType || 'image/jpeg';
+
   // اللون
   const mainColor = window.selColor || '#1bc47d';
   const isDark    = designStyle.includes('داكن') || designStyle.includes('Dark') || designStyle.includes('Sombre');
@@ -840,7 +844,6 @@ ${notes}` : ''}
 - اللون الرئيسي: ${mainColor}
 ${priceEnabled && priceNow ? `- السعر الحالي: ${priceNow} ${currency}${priceOld ? ` (مشطوب: ${priceOld} ${currency})` : ''}` : '- لا تعرض أسعاراً'}
 ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
-${imgB64 ? '- يوجد صورة للمنتج — استخدم وصفاً بصرياً مناسباً لها في الصفحة' : ''}
 
 【المطلوب】
 اكتب صفحة هبوط HTML/CSS/JS كاملة ومتجاوبة تحتوي على:
@@ -855,15 +858,11 @@ ${imgB64 ? '- يوجد صورة للمنتج — استخدم وصفاً بصر�
 اللون الرئيسي: ${mainColor} — التصميم: ${isDark ? 'داكن' : 'فاتح'} — الاتجاه: RTL
 أرجع فقط كود HTML كامل يبدأ بـ <!DOCTYPE html> بدون أي شرح.`;
 
-  // ── الصورة base64 ──
-  const imgB64  = window._productImgB64 || null;
-  const imgType = window._productImgType || 'image/jpeg';
-
   try {
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, userEmail: currentUser.email, imgB64, imgType })
+      body: JSON.stringify({ prompt, userEmail: currentUser.email })
     });
 
     if (!resp.ok) throw new Error('AI error: ' + resp.status);
@@ -998,7 +997,7 @@ window.refreshUI = refreshUI;
 const PALETTE = ['#1bc47d','#e74c3c','#3498db','#9b59b6','#f39c12','#1abc9c','#e67e22','#2ecc71','#e91e63','#00bcd4','#ff5722','#607d8b','#795548','#4caf50','#ff9800','#673ab7','#2196f3','#009688','#ffc107','#ff6b6b'];
 const LANGS_CYCLE = ['EN','AR','FR'];
 window.selColor = '#1bc47d';
-const BOT = {'شحن':'اذهب لـ "شحن الرصيد" واختر الباقة.','رصيد':'رصيدك يظهر أعلى الصفحة، اشحن من الشحن.','صفحة':'أدخل وصف المنتج واضغط "ولّد".','ai':'نستخدم AI مجاني.','تكلفة':'التكلفة من $0.50 حسب الباقة.','مساعدة':'اسألني عن أي شيء!'};
+const BOT = {'شحن':'اذهب لـ "شحن الرصيد" واختر الباقة.','رصيد':'رصيدك يظهر أعلى الصفحة، اشحن من الشحن.','صفحة':'أدخل وصف المنتج واضغط "ولّد".','gemini':'نستخدم AI مجاني.','تكلفة':'التكلفة من $0.50 حسب الباقة.','مساعدة':'اسألني عن أي شيء!'};
 
 // ─── localStorage: restore saved language ───
 const _savedLang = localStorage.getItem('fyp_lang');
@@ -1031,7 +1030,7 @@ function setColorMode(btn,mode){seg(btn);document.getElementById('color-panel').
 function pickColor(el,c){document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');selColor=c;window.selColor=c;document.getElementById('custom-color').value=c;document.getElementById('color-hex').textContent=c;toast('🎨 '+c);}
 function customColorPick(v){selColor=v;window.selColor=v;document.getElementById('color-hex').textContent=v;document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));}
 
-function handleImg(inp){const f=inp.files[0];if(!f)return;const url=URL.createObjectURL(f);const box=document.getElementById('upbox');box.classList.add('on');box.querySelector('.up-info h4').textContent=f.name.slice(0,22)+'…';box.querySelector('.up-info p').textContent='✓ تم الرفع';document.getElementById('up-ico').innerHTML=`<img class="up-prev" src="${url}"/>`;const reader=new FileReader();reader.onload=e=>{window._productImgB64=e.target.result.split(',')[1];window._productImgType=f.type;};reader.readAsDataURL(f);}
+function handleImg(inp){const f=inp.files[0];if(!f)return;const url=URL.createObjectURL(f);const box=document.getElementById('upbox');box.classList.add('on');box.querySelector('.up-info h4').textContent=f.name.slice(0,22)+'…';box.querySelector('.up-info p').textContent='✓ تم الرفع';document.getElementById('up-ico').innerHTML=`<img class="up-prev" src="${url}"/>`;}
 function handleLogo(inp){const f=inp.files[0];if(!f)return;const url=URL.createObjectURL(f);const box=document.getElementById('logo-box');box.classList.add('on');box.querySelector('.up-info h4').textContent='✓ '+f.name.slice(0,18);document.getElementById('logo-ico').innerHTML=`<img class="up-prev" src="${url}" style="width:44px;height:44px;object-fit:contain;"/>`;toast('✅ تم رفع الشعار!');}
 function ccnt(el,id,max){document.getElementById(id).textContent=el.value.length+'/'+max;}
 
@@ -1557,3 +1556,4 @@ applyTranslations();
 </script>
 </body>
 </html>
+
