@@ -46,8 +46,8 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: imgB64
-          ? 'meta-llama/llama-3.2-11b-vision-instruct:free'  // نموذج يدعم الصور
-          : 'meta-llama/llama-3.3-70b-instruct:free',         // نموذج نص فقط
+          ? 'google/gemini-2.0-flash-exp:free'  // نموذج يدعم الصور
+          : 'google/gemini-2.0-flash-exp:free',         // نموذج نص فقط
         messages: [{ role: 'user', content }],
         max_tokens: 8192,
         temperature: 0.85,
