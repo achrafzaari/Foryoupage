@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
       headers: {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://foryoupage-seven.vercel.app',
+        'HTTP-Referer': 'https://foryoupage-psi.vercel.app',
         'X-Title': 'ForYouPage'
       },
       body: JSON.stringify({
