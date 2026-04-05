@@ -45,9 +45,7 @@ module.exports = async function handler(req, res) {
         'X-Title': 'ForYouPage'
       },
       body: JSON.stringify({
-        model: imgB64
-          ? 'deepseek/deepseek-r1:free'  // نموذج يدعم الصور
-          : 'deepseek/deepseek-r1:free',         // نموذج نص فقط
+        model: 'meta-llama/llama-4-maverick:free',
         messages: [{ role: 'user', content }],
         max_tokens: 8192,
         temperature: 0.85,
