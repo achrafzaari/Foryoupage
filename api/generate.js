@@ -1,145 +1,162 @@
 export default async function handler(req, res) {
+
+  // ── CORS ──
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { prompt, userEmail } = req.body;
-
-  if (!prompt || prompt.trim() === '') {
-    return res.status(400).json({ error: 'Prompt is required' });
-  }
-
+  // ── API Key ──
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
   if (!GEMINI_API_KEY) {
-    console.error('❌ GEMINI_API_KEY is not set');
-    return res.status(500).json({
-      error: 'API key not configured. Please add GEMINI_API_KEY to Vercel environment variables.'
-    });
-  }
-
-  console.log(`📝 Generating page for: ${userEmail || 'Unknown user'}`);
-  console.log(`📏 Prompt length: ${prompt.length} characters`);
-  console.log(`🔑 API Key prefix: ${GEMINI_API_KEY.substring(0, 10)}...`);
-
-  const MODELS = [
-    'gemini-2.0-flash-exp',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-pro',
-  ];
-
-  let successResponse = null;
-  let usedModel = '';        // ✅ التصحيح: متغير منفصل لاسم النموذج
-  let triedModels = [];
-  let lastError = '';
-
-  for (const model of MODELS) {
-    try {
-      console.log(`🔄 Trying model: ${model}...`);
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 8192,
-            },
-            safetySettings: [
-              { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-              { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-              { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
-            ]
-          })
-        }
-      );
-
-      if (response.ok) {
-        console.log(`✅ Success with model: ${model}`);
-        successResponse = response;
-        usedModel = model;   // ✅ التصحيح: حفظ اسم النموذج هنا
-        break;
-      }
-
-      const errorText = await response.text();
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson?.error?.message || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
-      }
-
-      triedModels.push({ model, status: response.status, error: errorMessage });
-      lastError = errorMessage;
-      console.warn(`⚠️ Model ${model} failed: ${errorMessage}`);
-
-      if (response.status === 403) {
-        console.error('❌ Invalid API key, stopping further attempts');
-        break;
-      }
-
-    } catch (error) {
-      triedModels.push({ model, error: error.message });
-      lastError = error.message;
-      console.warn(`⚠️ Model ${model} error: ${error.message}`);
-    }
-  }
-
-  if (!successResponse) {
-    console.error('❌ All models failed:', triedModels);
-    return res.status(502).json({
-      error: '❌ جميع نماذج Gemini فشلت. يرجى المحاولة لاحقاً.',
-      details: lastError,
-      triedModels,
-      keyPrefix: GEMINI_API_KEY.substring(0, 10) + '...'
-    });
+    console.error('❌ GEMINI_API_KEY missing');
+    return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel environment variables' });
   }
 
   try {
-    const data = await successResponse.json();
-    let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const body = req.body || {};
 
-    if (!generatedText) {
-      throw new Error('No text generated from Gemini');
+    // ── استقبال بيانات المنتج من الـ dashboard ──
+    const {
+      description = '',
+      productName = '',
+      price = '',
+      oldPrice = '',
+      currency = 'USD',
+      platform = 'shopify',
+      country = '',
+      colors = [],
+      sizes = [],
+      offers = [],
+      brandName = '',
+      imageUrl = '',
+      lang = 'ar',
+      style = 'modern',
+    } = body;
+
+    if (!description && !productName) {
+      return res.status(400).json({ error: 'يجب إرسال وصف المنتج أو اسمه' });
     }
 
-    let cleanHtml = generatedText;
-    cleanHtml = cleanHtml.replace(/^```html\s*/gi, '');
-    cleanHtml = cleanHtml.replace(/^```\s*/gi, '');
-    cleanHtml = cleanHtml.replace(/```\s*$/gi, '');
-    cleanHtml = cleanHtml.trim();
+    // ── بناء الـ Prompt ──
+    const langLabel = lang === 'ar' ? 'العربية' : lang === 'fr' ? 'الفرنسية' : 'الإنجليزية';
+    const dir = lang === 'ar' ? 'rtl' : 'ltr';
 
-    if (!cleanHtml.toLowerCase().includes('<!doctype html>')) {
-      cleanHtml = `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>صفحة هبوط - ForYouPage</title>\n<style>\n*{margin:0;padding:0;box-sizing:border-box;}\nbody{font-family:sans-serif;}\n</style>\n</head>\n<body>\n${cleanHtml}\n</body>\n</html>`;
+    const prompt = `
+أنت خبير تسويق رقمي وخبير تطوير ويب. مهمتك إنشاء صفحة هبوط (Landing Page) احترافية وجاهزة للبيع.
+
+## معلومات المنتج:
+- الاسم: ${productName || 'منتج'}
+- الوصف: ${description}
+- السعر الحالي: ${price} ${currency}
+${oldPrice ? `- السعر القديم (قبل الخصم): ${oldPrice} ${currency}` : ''}
+${country ? `- الدولة المستهدفة: ${country}` : ''}
+${brandName ? `- اسم الماركة: ${brandName}` : ''}
+${colors.length ? `- الألوان المتاحة: ${colors.join(', ')}` : ''}
+${sizes.length ? `- المقاسات المتاحة: ${sizes.join(', ')}` : ''}
+${offers.length ? `- العروض الخاصة: ${offers.join(' | ')}` : ''}
+${imageUrl ? `- صورة المنتج: ${imageUrl}` : ''}
+- لغة الصفحة: ${langLabel}
+- اتجاه النص: ${dir}
+- النمط البصري: ${style}
+- المنصة: ${platform}
+
+## المطلوب:
+اكتب كود HTML كامل لصفحة هبوط احترافية تحتوي على:
+
+1. **Header** - شريط علوي بسيط مع اسم الماركة
+2. **Hero Section** - صورة المنتج + عنوان جذاب + وصف مقنع + زر "اطلب الآن"
+3. **مزايا المنتج** - 3 إلى 4 نقاط قوية مع أيقونات
+4. **السعر والعرض** - عرض السعر مع الخصم إن وجد + عداد تنازلي للإلحاح
+5. **اختيار اللون والمقاس** - إن وجدا
+6. **العروض الخاصة** - إن وجدت
+7. **آراء العملاء** - 3 تقييمات وهمية مقنعة
+8. **زر الطلب النهائي** - بارز وجذاب
+9. **Footer** - بسيط مع روابط
+
+## شروط الكود:
+- HTML واحد كامل مع CSS و JS مضمّنين (لا ملفات خارجية عدا Google Fonts)
+- متجاوب 100% مع الجوال
+- اتجاه النص: ${dir}
+- لغة المحتوى: ${langLabel} فقط
+- ألوان جذابة تناسب المنتج
+- تأثيرات CSS بسيطة وأنيمايشن خفيف
+- زر الطلب يفتح WhatsApp أو نموذج بسيط
+- لا تضع أي تعليقات أو شرح — فقط كود HTML نظيف كامل
+- ابدأ مباشرة بـ <!DOCTYPE html> وانتهِ بـ </html>
+`;
+
+    // ── إرسال لـ Gemini ──
+    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    const geminiRes = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.85,
+          maxOutputTokens: 8192,
+          topP: 0.95,
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        ]
+      })
+    });
+
+    // ── معالجة أخطاء Gemini ──
+    if (!geminiRes.ok) {
+      let errMsg = '';
+      try {
+        const errJson = await geminiRes.json();
+        errMsg = errJson?.error?.message || JSON.stringify(errJson);
+      } catch {
+        errMsg = await geminiRes.text();
+      }
+      console.error(`❌ Gemini ${geminiRes.status}:`, errMsg);
+
+      const STATUS_MSGS = {
+        429: 'تجاوزت الحد المسموح — انتظر دقيقة وأعد المحاولة',
+        400: 'طلب غير صحيح — تحقق من الـ API Key',
+        403: 'API Key غير مصرح له — تحقق منه في Google AI Studio',
+        500: 'خطأ في سيرفر Gemini — أعد المحاولة',
+        503: 'Gemini غير متاح الآن — أعد المحاولة بعد قليل',
+      };
+
+      const msg = STATUS_MSGS[geminiRes.status] || `خطأ من Gemini: ${geminiRes.status}`;
+      return res.status(geminiRes.status).json({ error: msg, details: errMsg });
     }
 
-    console.log(`✅ HTML generated (${cleanHtml.length} characters) using model: ${usedModel}`);
+    const data = await geminiRes.json();
+    let html = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!html) {
+      console.error('❌ Gemini رد فارغ:', JSON.stringify(data));
+      return res.status(500).json({ error: 'Gemini أرجع رداً فارغاً', raw: data });
+    }
+
+    // ── تنظيف الكود من backticks إن وجدت ──
+    html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    // ── حساب التكلفة التقريبية ──
+    const inputTokens  = Math.ceil(prompt.length / 4);
+    const outputTokens = Math.ceil(html.length / 4);
+    const cost = ((inputTokens * 0.000075 + outputTokens * 0.0003) / 1000).toFixed(6);
 
     return res.status(200).json({
-      html: cleanHtml,
-      length: cleanHtml.length,
-      model: usedModel,      // ✅ التصحيح: إرجاع المتغير الصحيح
-      timestamp: new Date().toISOString()
+      html,
+      tokens: { input: inputTokens, output: outputTokens },
+      cost_usd: cost,
+      model: 'gemini-1.5-flash'
     });
 
-  } catch (error) {
-    console.error('❌ Error processing response:', error);
-    return res.status(500).json({
-      error: '⚠️ حدث خطأ في معالجة استجابة Gemini',
-      details: error.message
-    });
+  } catch (err) {
+    console.error('❌ Server error:', err);
+    return res.status(500).json({ error: 'خطأ داخلي في السيرفر', message: err.message });
   }
 }
