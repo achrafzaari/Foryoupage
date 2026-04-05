@@ -46,8 +46,8 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: imgB64
-          ? 'google/gemini-2.0-flash-exp:free'  // نموذج يدعم الصور
-          : 'google/gemini-2.0-flash-exp:free',         // نموذج نص فقط
+          ? 'deepseek/deepseek-r1:free'  // نموذج يدعم الصور
+          : 'deepseek/deepseek-r1:free',         // نموذج نص فقط
         messages: [{ role: 'user', content }],
         max_tokens: 8192,
         temperature: 0.85,
