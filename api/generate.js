@@ -19,18 +19,11 @@ module.exports = async function handler(req, res) {
 
     if (!prompt) return res.status(400).json({ error: 'يجب إرسال prompt' });
 
-    // ── بناء المحتوى: نص فقط أو نص + صورة ──
     let content;
     if (imgB64) {
       content = [
-        {
-          type: 'image_url',
-          image_url: { url: `data:${imgType};base64,${imgB64}` }
-        },
-        {
-          type: 'text',
-          text: prompt
-        }
+        { type: 'image_url', image_url: { url: `data:${imgType};base64,${imgB64}` } },
+        { type: 'text', text: prompt }
       ];
     } else {
       content = prompt;
@@ -45,7 +38,7 @@ module.exports = async function handler(req, res) {
         'X-Title': 'ForYouPage'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-maverick:free',
+        model: 'qwen/qwen3-235b-a22b:free',
         messages: [{ role: 'user', content }],
         max_tokens: 8192,
         temperature: 0.85,
@@ -74,7 +67,6 @@ module.exports = async function handler(req, res) {
     let html = data?.choices?.[0]?.message?.content || '';
     if (!html) return res.status(500).json({ error: 'OpenRouter أرجع رداً فارغاً' });
 
-    // تنظيف backticks
     html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
     return res.status(200).json({ html });
