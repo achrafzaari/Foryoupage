@@ -856,13 +856,14 @@ ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
 7. تذييل الصفحة
 
 اللون الرئيسي: ${mainColor} — التصميم: ${isDark ? 'داكن' : 'فاتح'} — الاتجاه: RTL
+${imgB64 ? '- يوجد صورة للمنتج مرفقة' : ''}
 أرجع فقط كود HTML كامل يبدأ بـ <!DOCTYPE html> بدون أي شرح.`;
 
   try {
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, userEmail: currentUser.email })
+      body: JSON.stringify({ prompt, userEmail: currentUser.email, imgB64, imgType })
     });
 
     if (!resp.ok) throw new Error('AI error: ' + resp.status);
