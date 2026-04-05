@@ -6,73 +6,68 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-  if (!OPENROUTER_API_KEY) {
-    return res.status(500).json({ error: 'OPENROUTER_API_KEY not set in Vercel environment variables' });
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel environment variables' });
   }
 
   try {
     const body = req.body || {};
-    const prompt  = body.prompt  || '';
-    const imgB64  = body.imgB64  || null;
-    const imgType = body.imgType || 'image/jpeg';
-
+    const prompt = body.prompt || '';
     if (!prompt) return res.status(400).json({ error: 'يجب إرسال prompt' });
 
-    let content;
-    if (imgB64) {
-      content = [
-        { type: 'image_url', image_url: { url: `data:${imgType};base64,${imgB64}` } },
-        { type: 'text', text: prompt }
-      ];
-    } else {
-      content = prompt;
+    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    let geminiRes;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      geminiRes = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.85,
+            maxOutputTokens: 8192,
+            topP: 0.95,
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ]
+        })
+      });
+      if (geminiRes.status !== 429) break;
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 5000));
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://foryoupage-psi.vercel.app',
-        'X-Title': 'ForYouPage'
-      },
-      body: JSON.stringify({
-        model: 'qwen/qwen3-235b-a22b:free',
-        messages: [{ role: 'user', content }],
-        max_tokens: 8192,
-        temperature: 0.85,
-      })
-    });
-
-    if (!response.ok) {
+    if (!geminiRes.ok) {
       let errMsg = '';
-      try { errMsg = (await response.json())?.error?.message || ''; }
-      catch { errMsg = await response.text(); }
+      try { errMsg = (await geminiRes.json())?.error?.message || ''; }
+      catch { errMsg = await geminiRes.text(); }
 
       const STATUS_MSGS = {
-        429: 'تجاوزت الحد — انتظر قليلاً وأعد المحاولة',
-        401: 'API Key غير صحيح — تحقق من OPENROUTER_API_KEY',
-        403: 'غير مصرح له',
-        500: 'خطأ في سيرفر OpenRouter',
-        503: 'OpenRouter غير متاح الآن',
+        429: 'تجاوزت الحد المجاني — انتظر دقيقة وأعد المحاولة',
+        400: 'API Key غير صحيح',
+        403: 'API Key غير مصرح له',
+        500: 'خطأ في سيرفر Gemini',
+        503: 'Gemini غير متاح الآن',
       };
-      return res.status(response.status).json({
-        error: STATUS_MSGS[response.status] || `خطأ ${response.status}`,
+      return res.status(geminiRes.status).json({
+        error: STATUS_MSGS[geminiRes.status] || `خطأ ${geminiRes.status}`,
         details: errMsg
       });
     }
 
-    const data = await response.json();
-    let html = data?.choices?.[0]?.message?.content || '';
-    if (!html) return res.status(500).json({ error: 'OpenRouter أرجع رداً فارغاً' });
+    const data = await geminiRes.json();
+    let html = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!html) return res.status(500).json({ error: 'Gemini أرجع رداً فارغاً' });
 
     html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-
     return res.status(200).json({ html });
 
   } catch (err) {
-    console.error('Server error:', err);
     return res.status(500).json({ error: 'خطأ داخلي', message: err.message });
   }
 }
