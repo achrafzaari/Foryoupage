@@ -835,7 +835,7 @@ ${notes}` : ''}
 - جودة المحتوى: ${quality}
 - الزاوية التسويقية: ${marketAngle}
 - نموذج الطلب: ${orderForm === 'مفعّل' || orderForm === 'Active' || orderForm === 'Activé' ? 'أضف نموذج طلب (الاسم، الهاتف، المدينة)' : 'بدون نموذج طلب'}
-- نمط التصميم: ${designStyle} — ${isDark ? 'داكن — خلفية سوداء/رمادية، نصوص فاتحة' : 'فاتح — خلفية بيضاء، نصوص داكنة'}
+- نمط التصميم: ${isDark ? 'داكن — خلفية سوداء/رمادية، نصوص فاتحة' : 'فاتح — خلفية بيضاء، نصوص داكنة'}
 - أزرار CTA: ${ctaStyle}
 - اللون الرئيسي: ${mainColor}
 ${priceEnabled && priceNow ? `- السعر الحالي: ${priceNow} ${currency}${priceOld ? ` (مشطوب: ${priceOld} ${currency})` : ''}` : '- لا تعرض أسعاراً'}
@@ -1552,3 +1552,4 @@ applyTranslations();
 </script>
 </body>
 </html>
+
