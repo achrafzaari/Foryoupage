@@ -1,66 +1,121 @@
-export default async function handler(req, res) {
+export const config = { maxDuration: 60 };
 
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-  if (!OPENROUTER_API_KEY) {
-    return res.status(500).json({ error: 'OPENROUTER_API_KEY not set in Vercel environment variables' });
-  }
-
   try {
-    const body = req.body || {};
-    const prompt = body.prompt || '';
-    if (!prompt) return res.status(400).json({ error: 'يجب إرسال prompt' });
+    const { prompt, userEmail } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://foryoupage-psi.vercel.app',
-        'X-Title': 'ForYouPage'
-      },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 8192,
-        temperature: 0.85,
-      })
-    });
+    const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+    const apiKey   =  process.env.AI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'AI_API_KEY is not set in Vercel environment variables' });
 
-    if (!response.ok) {
-      let errMsg = '';
-      try { errMsg = (await response.json())?.error?.message || ''; }
-      catch { errMsg = await response.text(); }
+    let html = '';
 
-      const STATUS_MSGS = {
-        429: 'تجاوزت الحد — انتظر قليلاً وأعد المحاولة',
-        401: 'API Key غير صحيح — تحقق من OPENROUTER_API_KEY',
-        403: 'غير مصرح له',
-        500: 'خطأ في سيرفر OpenRouter',
-        503: 'OpenRouter غير متاح الآن',
-      };
-      return res.status(response.status).json({
-        error: STATUS_MSGS[response.status] || `خطأ ${response.status}`,
-        details: errMsg
+    // ── GEMINI ──────────────────────────────────────────────
+    if (provider === 'gemini') {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.85, maxOutputTokens: 8192 },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        }),
       });
+      if (!r.ok) return res.status(502).json({ error: `Gemini error ${r.status}` });
+      const d = await r.json();
+      html = d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // ── OPENAI ──────────────────────────────────────────────
+    } else if (provider === 'openai') {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: 'Return only complete HTML starting with <!DOCTYPE html>, no explanation.' },
+            { role: 'user',   content: prompt },
+          ],
+          temperature: 0.85,
+          max_tokens: 8192,
+        }),
+      });
+      if (!r.ok) return res.status(502).json({ error: `OpenAI error ${r.status}` });
+      const d = await r.json();
+      html = d?.choices?.[0]?.message?.content || '';
+
+    // ── CLAUDE (Anthropic) ──────────────────────────────────
+    } else if (provider === 'claude') {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 8192,
+          system: 'Return only complete HTML starting with <!DOCTYPE html>, no explanation.',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!r.ok) return res.status(502).json({ error: `Claude error ${r.status}` });
+      const d = await r.json();
+      html = d?.content?.[0]?.text || '';
+
+    // ── GROQ ────────────────────────────────────────────────
+    } else if (provider === 'groq') {
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: 'Return only complete HTML starting with <!DOCTYPE html>, no explanation.' },
+            { role: 'user',   content: prompt },
+          ],
+          temperature: 0.85,
+          max_tokens: 8192,
+        }),
+      });
+      if (!r.ok) return res.status(502).json({ error: `Groq error ${r.status}` });
+      const d = await r.json();
+      html = d?.choices?.[0]?.message?.content || '';
+
+    } else {
+      return res.status(400).json({ error: `Unknown AI_PROVIDER: "${provider}". Use: gemini, openai, claude, groq` });
     }
 
-    const data = await response.json();
-    let html = data?.choices?.[0]?.message?.content || '';
-    if (!html) return res.status(500).json({ error: 'OpenRouter أرجع رداً فارغاً' });
+    // ── Clean markdown fences if model added them ────────────
+    const clean = html
+      .replace(/^```html\s*/im, '')
+      .replace(/^```\s*/im, '')
+      .replace(/```\s*$/im, '')
+      .trim();
 
-    // تنظيف backticks
-    html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    if (!clean.includes('<!DOCTYPE')) {
+      return res.status(502).json({ error: 'AI did not return valid HTML. Please try again.' });
+    }
 
-    return res.status(200).json({ html });
+    console.log(`[generate] provider=${provider} user=${userEmail} chars=${clean.length}`);
+    return res.status(200).json({ html: clean });
 
   } catch (err) {
-    console.error('Server error:', err);
-    return res.status(500).json({ error: 'خطأ داخلي', message: err.message });
+    console.error('[generate] error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }
