@@ -1,8 +1,14 @@
 {
-  "name": "foryoupage-api",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@google/generative-ai": "^0.21.0"
-  }
+  "version": 2,
+  "functions": {
+    "api/generate.js": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
 }
