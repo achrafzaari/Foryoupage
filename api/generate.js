@@ -16,20 +16,16 @@ module.exports = async function handler(req, res) {
     const prompt = body.prompt || '';
     if (!prompt) return res.status(400).json({ error: 'يجب إرسال prompt' });
 
-    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     let geminiRes;
     for (let attempt = 1; attempt <= 3; attempt++) {
-      geminiRes = await fetch(GEMINI_URL, {
+      geminiRes = await fetch(URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.85,
-            maxOutputTokens: 8192,
-            topP: 0.95,
-          },
+          generationConfig: { temperature: 0.85, maxOutputTokens: 8192, topP: 0.95 },
           safetySettings: [
             { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
@@ -39,23 +35,22 @@ module.exports = async function handler(req, res) {
         })
       });
       if (geminiRes.status !== 429) break;
-      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 5000));
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 15000));
     }
 
     if (!geminiRes.ok) {
       let errMsg = '';
       try { errMsg = (await geminiRes.json())?.error?.message || ''; }
       catch { errMsg = await geminiRes.text(); }
-
-      const STATUS_MSGS = {
-        429: 'تجاوزت الحد المجاني — انتظر دقيقة وأعد المحاولة',
+      const msgs = {
+        429: 'تجاوزت الحد المجاني — انتظر دقيقة',
         400: 'API Key غير صحيح',
         403: 'API Key غير مصرح له',
         500: 'خطأ في سيرفر Gemini',
         503: 'Gemini غير متاح الآن',
       };
       return res.status(geminiRes.status).json({
-        error: STATUS_MSGS[geminiRes.status] || `خطأ ${geminiRes.status}`,
+        error: msgs[geminiRes.status] || `خطأ ${geminiRes.status}`,
         details: errMsg
       });
     }
