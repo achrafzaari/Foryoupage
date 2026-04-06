@@ -1,68 +1,92 @@
-module.exports = async function handler(req, res) {
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel environment variables' });
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const body = req.body || {};
-    const prompt = body.prompt || '';
-    if (!prompt) return res.status(400).json({ error: 'يجب إرسال prompt' });
+    const { prompt, userEmail, imgB64, imgType } = req.body;
 
-    const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    let geminiRes;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      geminiRes = await fetch(URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.85, maxOutputTokens: 8192, topP: 0.95 },
-          safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-          ]
-        })
-      });
-      if (geminiRes.status !== 429) break;
-      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 15000));
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    if (!geminiRes.ok) {
-      let errMsg = '';
-      try { errMsg = (await geminiRes.json())?.error?.message || ''; }
-      catch { errMsg = await geminiRes.text(); }
-      const msgs = {
-        429: 'تجاوزت الحد المجاني — انتظر دقيقة',
-        400: 'API Key غير صحيح',
-        403: 'API Key غير مصرح له',
-        500: 'خطأ في سيرفر Gemini',
-        503: 'Gemini غير متاح الآن',
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // ✅ استخدام نموذج أصغر وأسرع لتقليل الاستهلاك
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash-8b",  // أصغر حجماً من flash العادي
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,  // قللنا من 8192
+      }
+    });
+
+    let result;
+
+    // ✅ إضافة تأخير إذا كانت هناك صورة
+    if (imgB64 && imgType) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // تأخير 1 ثانية
+      
+      const base64Data = imgB64.includes('base64,') 
+        ? imgB64.split('base64,')[1] 
+        : imgB64;
+      
+      const imagePart = {
+        inlineData: {
+          data: base64Data,
+          mimeType: imgType || 'image/jpeg'
+        }
       };
-      return res.status(geminiRes.status).json({
-        error: msgs[geminiRes.status] || `خطأ ${geminiRes.status}`,
-        details: errMsg
-      });
+      
+      result = await model.generateContent([prompt, imagePart]);
+    } else {
+      result = await model.generateContent(prompt);
     }
 
-    const data = await geminiRes.json();
-    let html = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!html) return res.status(500).json({ error: 'Gemini أرجع رداً فارغاً' });
+    const response = await result.response;
+    let html = response.text();
 
-    html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-    return res.status(200).json({ html });
+    html = html.replace(/```html\s*/gi, '');
+    html = html.replace(/```\s*/g, '');
+    html = html.trim();
 
-  } catch (err) {
-    return res.status(500).json({ error: 'خطأ داخلي', message: err.message });
+    if (!html.toLowerCase().startsWith('<!doctype')) {
+      html = `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>صفحة هبوط - ForYouPage</title>\n<style>\n*{margin:0;padding:0;box-sizing:border-box;}\nbody{font-family:'Cairo',sans-serif;background:#fff;color:#1a1a2e;line-height:1.6;}\n.container{max-width:1200px;margin:0 auto;padding:20px;}\n.btn{background:#1bc47d;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer;}\n</style>\n</head>\n<body>\n${html}\n</body>\n</html>`;
+    }
+
+    return res.status(200).json({ 
+      html: html,
+      success: true 
+    });
+
+  } catch (error) {
+    console.error('Gemini API Error:', error);
+    
+    // ✅ معالجة خاصة لخطأ 429
+    if (error.message?.includes('429') || error.status === 429) {
+      return res.status(429).json({ 
+        error: 'الطلب مزدحم حالياً. يرجى الانتظار 30 ثانية والمحاولة مرة أخرى.',
+        retryAfter: 30
+      });
+    }
+    
+    let errorMessage = 'فشل في توليد الصفحة';
+    if (error.message?.includes('API key')) {
+      errorMessage = 'مشكلة في مفتاح API';
+    } else if (error.message?.includes('quota')) {
+      errorMessage = 'تم تجاوز الحصة اليومية المجانية. جرب غداً أو قم بترقية حسابك.';
+    }
+    
+    return res.status(500).json({ 
+      error: errorMessage,
+      details: error.message 
+    });
   }
 }
