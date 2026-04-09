@@ -14,11 +14,10 @@ module.exports = async function handler(req, res) {
   const KEY = process.env.GEMINI_API_KEY;
   if (!KEY) return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel' });
 
-  // قائمة الموديلات - يجرب الأول، وإن فشل ينتقل للتالي
   const MODELS = [
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
+    'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-latest',
   ];
 
   const MAX_TOKENS = 512;
@@ -52,9 +51,9 @@ module.exports = async function handler(req, res) {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error(`[generate] Model ${MODEL} failed:`, errText.substring(0, 200));
+        console.error(`[generate] Model ${MODEL} failed:`, errText.substring(0, 300));
         lastError = errText;
-        continue; // جرب الموديل التالي
+        continue;
       }
 
       const data = await response.json();
@@ -62,7 +61,7 @@ module.exports = async function handler(req, res) {
       if (!html) {
         console.error(`[generate] Model ${MODEL} returned empty response`);
         lastError = 'Empty response';
-        continue; // جرب الموديل التالي
+        continue;
       }
 
       html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -76,19 +75,14 @@ module.exports = async function handler(req, res) {
     } catch (error) {
       clearTimeout(timeoutId);
       console.error(`[generate] Model ${MODEL} error:`, error.message);
-      if (error.name === 'AbortError') {
-        lastError = 'timeout';
-        continue; // جرب الموديل التالي
-      }
-      lastError = error.message;
+      lastError = error.name === 'AbortError' ? 'timeout' : error.message;
       continue;
     }
   }
 
-  // كل الموديلات فشلت
   console.error('[generate] All models failed. Last error:', lastError);
   return res.status(502).json({
     error: 'All AI models are currently unavailable. Please try again later.',
-    details: lastError?.substring?.(0, 200) || lastError
+    details: typeof lastError === 'string' ? lastError.substring(0, 200) : lastError
   });
 };
