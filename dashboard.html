@@ -366,7 +366,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
 <div class="bc">
   <div class="bc-head">
     <div class="bc-title"><span class="dot-live"></span> إعدادات البناء</div>
-    <span class="bc-sub" id="gemini-status">● AI متصل</span>
+    <span class="bc-sub" id="gemini-status">● AI Connected</span>
   </div>
 
   <!-- 1 -->
@@ -572,12 +572,12 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
   <!-- Generate -->
   <div class="sec">
     <div class="cost-row">
-      <span class="cost-lbl">تكلفة الإنشاء بالذكاء الاصطناعي</span>
+      <span class="cost-lbl">Generation Cost</span>
       <span class="cost-val" id="cost-v">$0.80</span>
     </div>
     <button class="gen-btn" id="gbtn" onclick="confirmGen()">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m13 2-2 6.9H5l5.8 4.1-2 6.5 5.7-3.9 5.9 4.1-2.2-6.5 5.8-4z"/></svg>
-      ولّد صفحة الهبوط بالذكاء الاصطناعي
+      Generate Landing Page with AI
     </button>
     <div id="result-area"></div>
   </div>
@@ -636,7 +636,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
 <div class="ov" id="ov-confirm">
   <div class="mbox">
     <div class="m-ico">🚀</div>
-    <h3>تأكيد الإنشاء بالذكاء الاصطناعي</h3>
+    <h3>Confirm Generation</h3>
     <p>سيتم إرسال بيانات المنتج للذكاء الاصطناعي لإنشاء صفحة الهبوط وخصم التكلفة من رصيدك.</p>
     <div class="m-cost" id="m-cost">$0.80</div>
     <div class="m-acts">
@@ -660,7 +660,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
 <!-- GEN OVERLAY -->
 <div class="gen-ov" id="gen-ov">
   <div class="gen-ring"></div>
-  <div class="gen-ttl">🤖 AI يكتب صفحتك...</div>
+  <div class="gen-ttl">🤖 AI is generating your page...</div>
   <div class="gen-sb">يرجى الانتظار — هذا يستغرق 15-40 ثانية</div>
   <div class="gen-steps">
     <div class="gs" id="gs1"><div class="gs-ic">1</div>تحليل بيانات المنتج</div>
@@ -678,8 +678,8 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
 <div class="cb-wrap">
   <button class="cb-btn" onclick="toggleChat()">🤖<span class="cb-ping"></span></button>
   <div class="cb-panel" id="cb-panel">
-    <div class="cb-head"><div class="cb-ava">🤖</div><div><div class="cb-name">مساعد ForYouPage</div><div class="cb-stat">● AI متصل</div></div></div>
-    <div class="cb-msgs" id="cb-msgs"><div class="bub bot">مرحباً 👋 أنا مساعدك المدعوم بالذكاء الاصطناعي. كيف يمكنني مساعدتك؟</div></div>
+    <div class="cb-head"><div class="cb-ava">🤖</div><div><div class="cb-name">مساعد ForYouPage</div><div class="cb-stat">● AI Connected</div></div></div>
+    <div class="cb-msgs" id="cb-msgs"><div class="bub bot">مرحباً 👋 أنا your AI assistant. كيف يمكنني مساعدتك؟</div></div>
     <div class="cb-foot"><input class="cb-inp" type="text" id="cb-inp" placeholder="اكتب سؤالك..." onkeydown="if(event.key==='Enter')sendMsg()"/><button class="cb-send" onclick="sendMsg()">➤</button></div>
   </div>
 </div>
@@ -700,7 +700,7 @@ const FIREBASE_CONFIG = {
   appId:             "1:172871898986:web:d5e2ba0e80ea83dbe53713"
 };
 
-// 🔑 API key في Vercel Environment Variables
+// 🔑 AI API key في Vercel Environment Variables فقط — لا يوجد هنا
 // ════════════════════════════════════════════
 
 import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -759,7 +759,7 @@ window.doLogout = async function() {
   window.location.href = 'index.html';
 };
 
-// ─── GENERATE ───
+// ─── GENERATE with AI ───
 window.doGenerate = async function() {
   closeOv('ov-confirm');
   const desc    = document.getElementById('product-desc').value.trim();
@@ -813,9 +813,8 @@ window.doGenerate = async function() {
   const isBrandMode  = brandPanel?.classList.contains('on');
   const brandName    = isBrandMode ? document.getElementById('brand-name').value.trim() : '';
 
-  // ── الصورة base64 ── (يجب تعريفها قبل الـ prompt)
-  const imgB64  = window._productImgB64 || null;
-  const imgType = window._productImgType || 'image/jpeg';
+  // الصورة
+  const hasImage = !!document.querySelector('#upbox .up-prev');
 
   // اللون
   const mainColor = window.selColor || '#1bc47d';
@@ -844,6 +843,7 @@ ${notes}` : ''}
 - اللون الرئيسي: ${mainColor}
 ${priceEnabled && priceNow ? `- السعر الحالي: ${priceNow} ${currency}${priceOld ? ` (مشطوب: ${priceOld} ${currency})` : ''}` : '- لا تعرض أسعاراً'}
 ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
+${hasImage ? '- يوجد صورة للمنتج: استخدمها لفهم المنتج وكتابة محتوى مناسب' : ''}
 
 【المطلوب】
 اكتب صفحة هبوط HTML/CSS/JS كاملة ومتجاوبة تحتوي على:
@@ -856,17 +856,16 @@ ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
 7. تذييل الصفحة
 
 اللون الرئيسي: ${mainColor} — التصميم: ${isDark ? 'داكن' : 'فاتح'} — الاتجاه: RTL
-${imgB64 ? '- يوجد صورة للمنتج مرفقة' : ''}
 أرجع فقط كود HTML كامل يبدأ بـ <!DOCTYPE html> بدون أي شرح.`;
 
   try {
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, userEmail: currentUser.email, imgB64, imgType })
+      body: JSON.stringify({ prompt, userEmail: currentUser.email })
     });
 
-    if (!resp.ok) throw new Error('AI error: ' + resp.status);
+    if (!resp.ok) throw new Error('AI API error: ' + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     let html = data.html || '';
@@ -926,7 +925,7 @@ ${imgB64 ? '- يوجد صورة للمنتج مرفقة' : ''}
   } catch(err) {
     ov.classList.remove('on');
     steps.forEach(s => document.getElementById(s).classList.remove('on'));
-    toast('❌ خطأ: ' + (err.message || 'فشل الاتصال بالـ AI'));
+    toast('❌ خطأ: ' + (err.message || 'فشل الاتصال بـ AI'));
     console.error(err);
   }
 };
@@ -998,11 +997,11 @@ window.refreshUI = refreshUI;
 const PALETTE = ['#1bc47d','#e74c3c','#3498db','#9b59b6','#f39c12','#1abc9c','#e67e22','#2ecc71','#e91e63','#00bcd4','#ff5722','#607d8b','#795548','#4caf50','#ff9800','#673ab7','#2196f3','#009688','#ffc107','#ff6b6b'];
 const LANGS_CYCLE = ['EN','AR','FR'];
 window.selColor = '#1bc47d';
-const BOT = {'شحن':'اذهب لـ "شحن الرصيد" واختر الباقة.','رصيد':'رصيدك يظهر أعلى الصفحة، اشحن من الشحن.','صفحة':'أدخل وصف المنتج واضغط "ولّد".','gemini':'نستخدم AI مجاني.','تكلفة':'التكلفة من $0.50 حسب الباقة.','مساعدة':'اسألني عن أي شيء!'};
+const BOT = {'شحن':'اذهب لـ "شحن الرصيد" واختر الباقة.','رصيد':'رصيدك يظهر أعلى الصفحة، اشحن من الشحن.','صفحة':'أدخل وصف المنتج واضغط "ولّد".','ai':'We use the most powerful AI models.','تكلفة':'التكلفة من $0.50 حسب الباقة.','مساعدة':'اسألني عن أي شيء!'};
 
 // ─── localStorage: restore saved language ───
 const _savedLang = localStorage.getItem('fyp_lang');
-let li = _savedLang ? Math.max(0, LANGS_CYCLE.indexOf(_savedLang)) : 0;
+let li = _savedLang ? Math.max(0, LANGS_CYCLE.indexOf(_savedLang)) : LANGS_CYCLE.indexOf('EN');
 let offerCnt = 0, selColor = '#1bc47d';
 
 // Build color palette
@@ -1056,7 +1055,7 @@ const I18N = {
     'bal-sub':'رصيدك',
     'tab0':'⚙️ إعدادات البناء','tab1':'📄 صفحاتي','tab2':'💳 شحن','tab3':'📊 إحصائيات',
     'tool0-title':'إعدادات البناء','tool1-title':'صفحاتي','tool2-title':'شحن الرصيد','tool3-title':'إحصائيات',
-    'bc-head-title':' إعدادات البناء','gemini-status':'● AI متصل',
+    'bc-head-title':' إعدادات البناء','gemini-status':'● AI Connected',
     's1-ttl':'رفع صورة المنتج','s1-sub':'JPG, PNG — 5MB كحد أقصى (اختياري)',
     's2-ttl':'اللغة واللهجة',
     's3-ttl':'الدولة المستهدفة','s3-sub':'يؤثر على الشخصيات والسياق الثقافي والعملة.',
@@ -1078,8 +1077,8 @@ const I18N = {
     's13-ttl':'اللون',
     'sprod-ttl':'اسم/وصف المنتج','sprod-req':'مطلوب للـ AI','sprod-sub':'صف منتجك باختصار حتى يفهم الذكاء الاصطناعي ما سيكتبه.',
     'sprod-ph':'مثال: حذاء رياضي خفيف للركض، مقاومة الماء، مريح جداً، مناسب للرجال والنساء، متوفر بـ 5 ألوان...',
-    'cost-lbl':'تكلفة الإنشاء بالذكاء الاصطناعي',
-    'gen-btn-txt':'ولّد صفحة الهبوط بالذكاء الاصطناعي',
+    'cost-lbl':'Generation Cost',
+    'gen-btn-txt':'Generate Landing Page with AI',
     'hist-title':'📄 صفحاتي','hist-new':'+ جديد','search-ph':'بحث...',
     'empty-txt':'لا توجد صفحات بعد','empty-btn':'ابدأ الآن',
     'price-h2':'💳 شحن الرصيد','price-sub':'ادفع مرة واحدة واستخدم رصيدك — بالدولار الأمريكي',
@@ -1088,15 +1087,15 @@ const I18N = {
     'st-pgs-l':'الصفحات المنشأة','st-pgs-s':'إجمالي الصفحات',
     'st-sp-l':'المبلغ المصروف','st-sp-s':'من أول استخدام',
     'st-pl-l':'الخطة النشطة','st-pl-s-def':'لا توجد خطة',
-    'ov-conf-title':'تأكيد الإنشاء بالذكاء الاصطناعي',
+    'ov-conf-title':'Confirm Generation',
     'ov-conf-p':'سيتم إرسال بيانات المنتج للذكاء الاصطناعي لإنشاء صفحة الهبوط وخصم التكلفة من رصيدك.',
     'ov-cancel':'إلغاء','ov-ok':'تأكيد ✓',
     'ov-suc-title':'تم الشحن بنجاح!',
     'ov-suc-p':'تمت إضافة الرصيد لحسابك. يمكنك الآن إنشاء صفحات هبوط بالذكاء الاصطناعي.',
     'ov-suc-btn':'ابدأ الإنشاء ✨',
-    'gen-ttl':'🤖 AI يكتب صفحتك...','gen-sb':'يرجى الانتظار — هذا يستغرق 15-40 ثانية',
+    'gen-ttl':'🤖 AI is generating your page...','gen-sb':'يرجى الانتظار — هذا يستغرق 15-40 ثانية',
     'gs1':'تحليل بيانات المنتج','gs2':'كتابة النصوص التسويقية','gs3':'بناء هيكل الصفحة','gs4':'تطبيق التصميم والألوان','gs5':'المراجعة والإنهاء',
-    'cb-name':'مساعد ForYouPage','cb-stat':'● AI متصل',
+    'cb-name':'مساعد ForYouPage','cb-stat':'● AI Connected',
     'cb-ph':'اكتب سؤالك...',
     'pay-h3':'💳 إتمام الدفع','pay-btn':'🔒 ادفع الآن','pay-cancel':'إلغاء ←',
     'stripe-note':'🔒 مدعوم بـ Stripe — دفع آمن ومشفر',
@@ -1118,7 +1117,7 @@ const I18N = {
     'price-tip':'💡 السعر المشطوب يظهر بخط أحمر لإبراز التخفيض',
     'offer-ph':'مثال: اشترِ 2 واحصل على 1 مجاناً',
     'offer-del-toast':'تم حذف العرض',
-    'cb-welcome':'مرحباً 👋 أنا مساعدك المدعوم بالذكاء الاصطناعي. كيف يمكنني مساعدتك؟'
+    'cb-welcome':'مرحباً 👋 أنا your AI assistant. كيف يمكنني مساعدتك؟'
   },
   EN:{dir:'ltr',lang:'en',
     'promo-txt':'Start with <strong>free credit</strong> to create your first AI landing page — <strong>AI</strong>',
