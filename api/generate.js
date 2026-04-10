@@ -1,88 +1,89 @@
-module.exports = async function handler(req, res) {
-  console.log(`[generate] Request started, method: ${req.method}`);
-
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { prompt } = req.body || {};
-  if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel Environment Variables' });
 
-  const KEY = process.env.GEMINI_API_KEY;
-  if (!KEY) return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel' });
+  try {
+    const { messages = [], system = '', isHtml = false } = req.body || {};
 
-  const MODELS = [
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash-latest',
-  ];
+    // Build Gemini prompt
+    const model = isHtml ? 'gemini-2.0-flash' : 'gemini-2.0-flash';
+    const maxTokens = isHtml ? 8192 : 600;
 
-  const MAX_TOKENS = 512;
-  let lastError = null;
+    // Convert messages to Gemini format
+    const geminiParts = [];
+    if (system) geminiParts.push({ text: system + '\n\n' });
+    messages.forEach(m => {
+      geminiParts.push({ text: (m.role === 'user' ? 'User: ' : 'Assistant: ') + 
+        (Array.isArray(m.content) 
+          ? m.content.filter(c => c.type === 'text').map(c => c.text).join(' ')
+          : m.content) 
+      });
+    });
 
-  for (const MODEL of MODELS) {
-    console.log(`[generate] Trying model: ${MODEL}`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: MAX_TOKENS },
-            safetySettings: [
-              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-            ]
-          })
+    // Handle image if present
+    const contents = [];
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && Array.isArray(lastMsg.content)) {
+      const parts = [];
+      if (system) parts.push({ text: system + '\n\n' });
+      lastMsg.content.forEach(c => {
+        if (c.type === 'text') {
+          parts.push({ text: c.text });
+        } else if (c.type === 'image') {
+          parts.push({ inlineData: { mimeType: c.source.media_type, data: c.source.data } });
         }
-      );
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`[generate] Model ${MODEL} failed:`, errText.substring(0, 300));
-        lastError = errText;
-        continue;
-      }
-
-      const data = await response.json();
-      let html = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!html) {
-        console.error(`[generate] Model ${MODEL} returned empty response`);
-        lastError = 'Empty response';
-        continue;
-      }
-
-      html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-      if (!html.toLowerCase().startsWith('<!doctype')) {
-        html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Landing Page</title></head><body>${html}</body></html>`;
-      }
-
-      console.log(`[generate] Success with model: ${MODEL}`);
-      return res.status(200).json({ html, model: MODEL });
-
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error(`[generate] Model ${MODEL} error:`, error.message);
-      lastError = error.name === 'AbortError' ? 'timeout' : error.message;
-      continue;
+      });
+      contents.push({ role: 'user', parts });
+    } else {
+      const fullText = system 
+        ? system + '\n\nUser request: ' + (messages[messages.length-1]?.content || '')
+        : (messages[messages.length-1]?.content || '');
+      contents.push({ role: 'user', parts: [{ text: fullText }] });
     }
-  }
 
-  console.error('[generate] All models failed. Last error:', lastError);
-  return res.status(502).json({
-    error: 'All AI models are currently unavailable. Please try again later.',
-    details: typeof lastError === 'string' ? lastError.substring(0, 200) : lastError
-  });
-};
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    
+    const upstream = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature: isHtml ? 0.7 : 0.5,
+        }
+      }),
+    });
+
+    const data = await upstream.json();
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ 
+        error: data?.error?.message || 'Gemini API error',
+        details: data 
+      });
+    }
+
+    let result = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    if (isHtml) {
+      result = result
+        .replace(/^```html\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```\s*$/i, '')
+        .trim();
+    }
+
+    return res.status(200).json({ result, html: result });
+
+  } catch (err) {
+    console.error('[generate] error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}
