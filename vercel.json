@@ -1,12 +1,3 @@
 {
-  "version": 2,
-  "functions": {
-    "api/generate.js": { "maxDuration": 30 },
-    "api/test.js": { "maxDuration": 10 }
-  },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/dashboard", "dest": "/dashboard.html" },
-    { "src": "/", "dest": "/index.html" }
-  ]
+  "version": 2
 }
