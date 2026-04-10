@@ -1,4 +1,6 @@
 {
-  "name": "foryoupage",
-  "version": "1.0.0"
+  "name": "superpagex",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module"
 }
